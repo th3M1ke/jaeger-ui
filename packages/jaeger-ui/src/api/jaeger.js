@@ -112,6 +112,12 @@ const JaegerAPI = {
   searchTraces(query) {
     return getJSON(`${this.apiRoot}traces`, { query });
   },
+  fetchMetrics(metricType, serviceNameList, query) {
+    return getJSON(`${this.apiRoot}metrics/${metricType}/${serviceNameList.join(",")}`, { query }).then(d => {
+
+      return d;
+    })
+  }
 };
 
 export default JaegerAPI;

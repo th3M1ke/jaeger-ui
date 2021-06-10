@@ -62,3 +62,27 @@ export const fetchDeepDependencyGraph = createAction(
 export const fetchDependencies = createAction('@JAEGER_API/FETCH_DEPENDENCIES', () =>
   JaegerAPI.fetchDependencies()
 );
+
+export const fetchAllServiceMetrics = createAction(
+  '@JAEGER_API/FETCH_ALL_SERVICE_METRICS',
+  (serviceName, query) => {
+    return Promise.all([
+      JaegerAPI.fetchMetrics('latencies', [serviceName], query),
+      JaegerAPI.fetchMetrics('calls', [serviceName], query),
+      JaegerAPI.fetchMetrics('errors', [serviceName], query),
+    ])
+  }
+);
+
+export const fetchAggregatedServiceMetrics = createAction(
+  '@JAEGER_API/FETCH_AGGREGATED_SERVICE_METRICS',
+  (serviceName, queryParams) => {
+    const query = {...queryParams, groupByOperation: true}
+    return Promise.all([
+      JaegerAPI.fetchMetrics('latencies', [serviceName], query),
+      JaegerAPI.fetchMetrics('calls', [serviceName], query),
+      JaegerAPI.fetchMetrics('errors', [serviceName], query),
+    ])
+  }
+);
+

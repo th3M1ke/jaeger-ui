@@ -24,6 +24,7 @@ import * as deepDependencies from '../DeepDependencies/url';
 import * as qualityMetrics from '../QualityMetrics/url';
 import * as searchUrl from '../SearchTracePage/url';
 import * as diffUrl from '../TraceDiff/url';
+import * as monitoringATMUrl from '../MonitoringATM/url';
 import { ReduxState } from '../../types';
 import { ConfigMenuItem, ConfigMenuGroup } from '../../types/config';
 import { getConfigValue } from '../../utils/config/get-config';
@@ -65,6 +66,14 @@ if (getConfigValue('qualityMetrics.menuEnabled')) {
     to: qualityMetrics.getUrl(),
     matches: qualityMetrics.matches,
     text: getConfigValue('qualityMetrics.menuLabel'),
+  });
+}
+
+if (getConfigValue('monitoring.menuEnabled')) {
+  NAV_LINKS.push({
+    to: monitoringATMUrl.getUrl(),
+    matches: monitoringATMUrl.matches,
+    text: 'Monitoring',
   });
 }
 
