@@ -84,6 +84,7 @@ function getItem(item: ConfigMenuItem) {
       {label}
     </a>
   );
+
   return (
     <Menu.Item key={label} disabled={!url}>
       {url ? link : label}

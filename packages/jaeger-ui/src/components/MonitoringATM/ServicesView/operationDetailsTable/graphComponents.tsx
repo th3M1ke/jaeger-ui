@@ -16,56 +16,72 @@ import * as React from 'react';
 import {
   XYPlot,
   AreaSeries,
+  LineSeries,
   // @ts-ignore
 } from 'react-vis';
 
 type TProps = {
-  color: string,
-  dataPoints: {x: number, y: number}[]
+  color: string;
+  dataPoints: { x: number; y: number }[];
+  yDomain?: [number, number];
 };
 
 // export for tests
 export class OperationsGraph extends React.PureComponent<TProps> {
-  constructor(props: any) {
-    super(props);
-  }
-
   render() {
-    if(this.props.dataPoints.length === 0){
-      return <div style={{
-        verticalAlign: 'middle',
-        textAlign: 'center',
-        display: 'table-cell'
-      }}>No Data</div>
+    if (this.props.dataPoints.length === 0) {
+      return (
+        <div
+          style={{
+            verticalAlign: 'middle',
+            textAlign: 'center',
+            display: 'table-cell',
+          }}
+        >
+          No Data
+        </div>
+      );
     }
 
-    return (<XYPlot margin={{
-      left: 5,
-      right: 5,
-      bottom: 5,
-      top: 5
-    }} width={200} height={100}>
-      {/* <VerticalGridLines />
-      <HorizontalGridLines />
-      <YAxis /> */}
-      <AreaSeries
-        className="area-series-example"
-        curve="curveLinear"
-        color={this.props.color}
-        style={{opacity:0.6}}
-        data={this.props.dataPoints}
-      />
-      {/* <LineMarkSeries
-        className="area-elevated-line-series"
-        color="gray"
-        data={row.dataPoints}
-      />
-      <MarkSeries data={[{ x: 1, y: 0 }]} style={{ display: 'none' }} /> */}
-    </XYPlot>)
+    const dynProps: any = {};
 
+    if (this.props.yDomain) {
+      dynProps.yDomain = this.props.yDomain;
+    }
 
+    return (
+      <div style={{ paddingTop: 2 }}>
+        <XYPlot
+          margin={{
+            left: 0,
+            right: 0,
+            bottom: 1,
+            top: 2,
+          }}
+          width={100}
+          height={15}
+        >
+          {/* <VerticalGridLines />
+      <HorizontalGridLines /> */}
+          {/* <YAxis /> */}
+          <AreaSeries
+            className="area-series-example"
+            curve="curveLinear"
+            color={this.props.color}
+            style={{ opacity: 0.2 }}
+            data={this.props.dataPoints}
+            {...dynProps}
+          />
+          <LineSeries
+            className="area-elevated-line-series"
+            color={this.props.color}
+            data={this.props.dataPoints}
+            {...dynProps}
+          />
+        </XYPlot>
+      </div>
+    );
   }
 }
-
 
 export default OperationsGraph;

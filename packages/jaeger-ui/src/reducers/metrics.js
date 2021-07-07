@@ -1,4 +1,3 @@
-/* eslint-disable no-debugger */
 // Copyright (c) 2021 The Jaeger Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,15 +14,12 @@
 
 import { handleActions } from 'redux-actions';
 
-import {
-    fetchAllServiceMetrics,
-    fetchAggregatedServiceMetrics,
-} from '../actions/jaeger-api';
+import { fetchAllServiceMetrics, fetchAggregatedServiceMetrics } from '../actions/jaeger-api';
 
 const initialState = {
   error: null,
-  loading: false,
-  operationMetricsLoading: false,
+  loading: null,
+  operationMetricsLoading: null,
   serviceMetrics: {},
   serviceOpsMetrics: null,
 };
@@ -33,31 +29,35 @@ function fetchStarted(state) {
 }
 
 function fetchServiceMetricsDone(state, { payload }) {
-    const serviceMetrics = {
-        service_latencies: null,
-        service_call_rate: null,
-        service_error_rate: null,
-    };
+  const serviceMetrics = {
+    service_latencies: null,
+    service_call_rate: null,
+    service_error_rate: null,
+  };
 
-    payload.forEach(metrics => {
-        if(metrics.metrics[0]) {
-            if(serviceMetrics[metrics.name] !== null){
-                throw new Error('API response was changed');
-            }
-
-            const metric = {
-              serviceName: metrics.metrics[0].labels[0].value,
-              metricPoints: metrics.metrics[0].metricPoints.map(p => {
-                  return {
-                    x: (new Date(p.timestamp)).getTime(),
-                    y: parseFloat(p.gaugeValue.doubleValue.toFixed(2))
-                  }
-                }),
+  payload.forEach(metrics => {
+    if (metrics.metrics[0]) {
+      const metric = {
+        serviceName: metrics.metrics[0].labels[0].value,
+        quantile: metrics.quantile,
+        metricPoints: metrics.metrics[0].metricPoints.map(p => {
+          return {
+            x: new Date(p.timestamp).getTime(),
+            y: parseFloat(p.gaugeValue.doubleValue.toFixed(2)),
           };
+        }),
+      };
 
-            serviceMetrics[metrics.name] = metric;
+      if (metrics.name === 'service_latencies') {
+        if (serviceMetrics[metrics.name] === null) {
+          serviceMetrics[metrics.name] = [];
         }
-    })
+        serviceMetrics[metrics.name].push(metric);
+      } else {
+        serviceMetrics[metrics.name] = metric;
+      }
+    }
+  });
 
   return { ...state, serviceMetrics, error: null, loading: false };
 }
@@ -75,7 +75,7 @@ function fetchOpsMetricsDone(state, { payload }) {
 
   payload.forEach(metric => {
     metric.metrics.forEach(metricDetails => {
-      if(opsMetrics === null) {
+      if (opsMetrics === null) {
         opsMetrics = {};
       }
 
@@ -84,15 +84,15 @@ function fetchOpsMetricsDone(state, { payload }) {
         service_operation_latencies: 0,
         service_operation_call_rate: 0,
         service_operation_error_rate: 0,
-      }
+      };
       metricDetails.labels.forEach(label => {
-        if(label.name === 'operation'){
+        if (label.name === 'operation') {
           opsName = label.value;
         }
-      })
+      });
 
-      if(opsName) {
-        if(opsMetrics[opsName] === undefined) {
+      if (opsName) {
+        if (opsMetrics[opsName] === undefined) {
           opsMetrics[opsName] = {
             name: opsName,
             metricPoints: {
@@ -103,7 +103,7 @@ function fetchOpsMetricsDone(state, { payload }) {
                 service_operation_latencies: null,
                 service_operation_call_rate: null,
                 service_operation_error_rate: null,
-              }
+              },
             },
           };
         }
@@ -112,38 +112,45 @@ function fetchOpsMetricsDone(state, { payload }) {
           const y = parseFloat(p.gaugeValue.doubleValue.toFixed(2));
           avg[metric.name] += y;
           return {
-            x: (new Date(p.timestamp)).getTime(),
+            x: new Date(p.timestamp).getTime(),
             y,
-          }
+          };
         });
 
-        opsMetrics[opsName].metricPoints.avg[metric.name] =  metricDetails.metricPoints.length > 0 ? parseFloat((avg[metric.name] / metricDetails.metricPoints.length).toFixed(2)) : null;
+        opsMetrics[opsName].metricPoints.avg[metric.name] =
+          metricDetails.metricPoints.length > 0
+            ? parseFloat((avg[metric.name] / metricDetails.metricPoints.length).toFixed(2))
+            : null;
       }
-    })
-  })
+    });
+  });
 
   const minMax = {
     min: null,
     max: null,
-  }
+  };
 
   let serviceOpsMetrics = null;
-  if(opsMetrics) {
+  if (opsMetrics) {
     serviceOpsMetrics = Object.keys(opsMetrics).map((key, i) => {
       let impact = 0;
-      if(opsMetrics[key].metricPoints.avg.service_operation_latencies !== null && opsMetrics[key].metricPoints.avg.service_operation_call_rate !== null){
-        impact = (opsMetrics[key].metricPoints.avg.service_operation_latencies * opsMetrics[key].metricPoints.avg.service_operation_call_rate) / 100
+      if (
+        opsMetrics[key].metricPoints.avg.service_operation_latencies !== null &&
+        opsMetrics[key].metricPoints.avg.service_operation_call_rate !== null
+      ) {
+        impact =
+          (opsMetrics[key].metricPoints.avg.service_operation_latencies *
+            opsMetrics[key].metricPoints.avg.service_operation_call_rate) /
+          100;
       }
 
-      if(i === 0) {
+      if (i === 0) {
         minMax.max = impact;
         minMax.min = impact;
-      }
-      else{
+      } else {
         minMax.max = minMax.max < impact ? impact : minMax.max;
         minMax.min = minMax.min > impact ? impact : minMax.min;
       }
-
 
       return {
         key: i.toString(),
@@ -152,23 +159,22 @@ function fetchOpsMetricsDone(state, { payload }) {
         requests: opsMetrics[key].metricPoints.avg.service_operation_call_rate || 0,
         errRates: opsMetrics[key].metricPoints.avg.service_operation_error_rate || 0,
         impact,
-        dataPoints: opsMetrics[key].metricPoints
-      }
-    })
+        dataPoints: opsMetrics[key].metricPoints,
+      };
+    });
 
-    if(serviceOpsMetrics.length > 1){
+    if (serviceOpsMetrics.length > 1) {
       serviceOpsMetrics.forEach((v, i) => {
         serviceOpsMetrics[i].impact = (v.impact - minMax.min) / (minMax.max - minMax.min);
-      })
+      });
     }
   }
 
   return { ...state, serviceOpsMetrics, error: null, operationMetricsLoading: false };
-
 }
 
 function fetchOpsMetricsErred(state, { payload: error }) {
-  return { ...state, error, loading: false, serviceMetrics: {} };
+  return { ...state, error, operationMetricsLoading: false, serviceMetrics: {} };
 }
 
 export default handleActions(

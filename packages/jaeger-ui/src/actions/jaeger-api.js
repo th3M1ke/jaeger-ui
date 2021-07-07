@@ -67,22 +67,23 @@ export const fetchAllServiceMetrics = createAction(
   '@JAEGER_API/FETCH_ALL_SERVICE_METRICS',
   (serviceName, query) => {
     return Promise.all([
+      JaegerAPI.fetchMetrics('latencies', [serviceName], { ...query, quantile: 0.5 }),
+      JaegerAPI.fetchMetrics('latencies', [serviceName], { ...query, quantile: 0.75 }),
       JaegerAPI.fetchMetrics('latencies', [serviceName], query),
       JaegerAPI.fetchMetrics('calls', [serviceName], query),
       JaegerAPI.fetchMetrics('errors', [serviceName], query),
-    ])
+    ]);
   }
 );
 
 export const fetchAggregatedServiceMetrics = createAction(
   '@JAEGER_API/FETCH_AGGREGATED_SERVICE_METRICS',
   (serviceName, queryParams) => {
-    const query = {...queryParams, groupByOperation: true}
+    const query = { ...queryParams, groupByOperation: true };
     return Promise.all([
       JaegerAPI.fetchMetrics('latencies', [serviceName], query),
       JaegerAPI.fetchMetrics('calls', [serviceName], query),
       JaegerAPI.fetchMetrics('errors', [serviceName], query),
-    ])
+    ]);
   }
 );
-

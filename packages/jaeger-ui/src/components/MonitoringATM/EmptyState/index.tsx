@@ -13,37 +13,43 @@
 // limitations under the License.
 
 import * as React from 'react';
-import LabeledList from '../../common/LabeledList';
 import { List, Row, Col, Button } from 'antd';
 import IoIosCheckmark from 'react-icons/lib/io/ios-checkmark-outline';
 import IoIosCloseCircle from 'react-icons/lib/io/ios-circle-outline';
 
-export default class MonitoringATMEmptyState extends React.PureComponent<any, any> {
-  private statusText = [
-    {
-      text: 'Configured',
-      status: true,
-    },
-    {
-      text: 'Sent data',
-      status: false,
-    },
-  ];
+type TProps = {
+  configureStatus: boolean;
+  sendDataStatus: boolean;
+};
+
+export default class MonitoringATMEmptyState extends React.PureComponent<TProps> {
+  private configureStatus = {
+    text: 'Configured',
+    status: false,
+  };
+
+  private sendDataStatus = {
+    text: 'Sent data',
+    status: false,
+  };
+
+  constructor(props: TProps) {
+    super(props);
+
+    this.configureStatus.status = props.configureStatus;
+    this.sendDataStatus.status = props.sendDataStatus;
+  }
 
   render() {
-    const itemStyle = {
-      listStyleType: 'square',
-      display: 'list-item',
-    };
     return (
       <Row justify="center">
         <Col span={12} offset={6} style={{ textAlign: 'center', marginTop: 'calc(100vh/3.5)' }}>
           <List
             itemLayout="vertical"
-            dataSource={this.statusText}
+            dataSource={[this.configureStatus, this.sendDataStatus]}
             split={false}
-            size={'small'}
-            rowKey={'-'}
+            size="small"
+            rowKey="-"
             header={<h2 className="ub-m0">Get started with Services Monitoring</h2>}
             footer={
               <Button

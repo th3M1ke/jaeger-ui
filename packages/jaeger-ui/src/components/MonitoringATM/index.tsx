@@ -13,26 +13,27 @@
 // limitations under the License.
 
 import * as React from 'react';
-import LoadingIndicator from '../common/LoadingIndicator';
+import { connect } from 'react-redux';
 import MonitoringATMEmptyState from './EmptyState';
 import MonitoringATMServicesView from './ServicesView';
 
-export default class MonitoringATMPageImpl extends React.PureComponent<any, any> {
-  constructor(props: any) {
-    super(props);
-  }
-
+class MonitoringATMPageImpl extends React.PureComponent<any> {
   render() {
-    const loading = false;
-    if (loading) {
-      return <LoadingIndicator className="u-mt-vast" centered />;
-    }
-
-    const EmptyState = false;
+    const EmptyState = this.props.metrics.error && this.props.metrics.error.httpStatus === 501;
     if (EmptyState) {
-      return <MonitoringATMEmptyState />;
+      return <MonitoringATMEmptyState configureStatus={false} sendDataStatus={false} />;
     }
 
     return <MonitoringATMServicesView />;
   }
 }
+
+export function mapStateToProps(state: any) {
+  const { serviceMetrics, metrics } = state;
+  return {
+    serviceMetrics,
+    metrics,
+  };
+}
+
+export default connect(mapStateToProps)(MonitoringATMPageImpl);

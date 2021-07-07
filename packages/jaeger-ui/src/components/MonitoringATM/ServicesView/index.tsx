@@ -16,13 +16,17 @@ import * as React from 'react';
 import { Row, Col, Input } from 'antd';
 // @ts-ignore
 import { Field, formValueSelector, reduxForm } from 'redux-form';
+// @ts-ignore
+import store from 'store';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 import VirtSelect from '../../common/VirtSelect';
 import reduxFormFieldAdapter from '../../../utils/redux-form-field-adapter';
 import * as jaegerApiActions from '../../../actions/jaeger-api';
-import ServiceGraph from './serviceGraphComponent';
+import ServiceGraph from './GraphComponent';
 import OperationTableDetails from './operationDetailsTable';
+
+import './index.css';
 
 const Search = Input.Search;
 
@@ -37,21 +41,21 @@ export const serviceFormSelector = formValueSelector('serviceForm');
 export class MonitoringATMServicesViewImpl extends React.PureComponent<any, any> {
   myInput: any;
   serviceSelectorValue: string = '';
+  endTime: number = Date.now();
   state = {
-    loading: true,
     graphWidth: 300,
     serviceOpsMetrics: null,
+    searchOps: '',
   };
 
   constructor(props: any) {
     super(props);
     this.myInput = React.createRef();
-
   }
 
   componentDidMount() {
     this.setState({
-      graphWidth: this.myInput.current.offsetWidth,
+      graphWidth: this.myInput.current.offsetWidth - 24,
     });
 
     const { fetchServices } = this.props;
@@ -59,58 +63,78 @@ export class MonitoringATMServicesViewImpl extends React.PureComponent<any, any>
     fetchServices().then(() => this.fetchMetrics());
   }
 
-  fetchMetrics() {
-    const { selectedService, selectedTimeFrame, fetchAllServiceMetrics, fetchAggregatedServiceMetrics } = this.props;
-
-    const metricQueryPayload = {
-      quantile: 0.95,
-      endTs: Date.now(),
-      lookback: selectedTimeFrame || 60*60*1000,
-      step: 60*1000,
-      ratePer: 60*60*1000,
-    }
-
-    fetchAllServiceMetrics(
-      selectedService || this.props.services[0],
-      metricQueryPayload
-    );
-
-    fetchAggregatedServiceMetrics(
-      selectedService || this.props.services[0],
-      metricQueryPayload);
-  }
-
   componentDidUpdate(nextProps: any) {
-
-    const { selectedService, selectedTimeFrame, metrics } = this.props;
-    console.log('2222 componentDidUpdate metrics: ', metrics);
-    console.log('selectedTimeFrame/componentDidUpdate: ', selectedTimeFrame);
+    const { selectedService, selectedTimeFrame } = this.props;
 
     if (nextProps.selectedService !== selectedService || nextProps.selectedTimeFrame !== selectedTimeFrame) {
       this.fetchMetrics();
     }
+  }
 
-    if(nextProps.metrics.serviceOpsMetrics !== metrics.serviceOpsMetrics) {
-      this.setState({
-        serviceOpsMetrics: metrics.serviceOpsMetrics
-      })
-    }
+  fetchMetrics() {
+    const {
+      selectedService,
+      selectedTimeFrame,
+      fetchAllServiceMetrics,
+      fetchAggregatedServiceMetrics,
+    } = this.props;
+
+    this.endTime = Date.now();
+    store.set('lastAtmSearchTimeframe', selectedTimeFrame);
+    store.set('lastAtmSearchService', this.getSelectedService());
+
+    const metricQueryPayload = {
+      quantile: 0.95,
+      endTs: this.endTime,
+      lookback: selectedTimeFrame,
+      step: 60 * 1000,
+      ratePer: 60 * 60 * 1000,
+    };
+
+    fetchAllServiceMetrics(selectedService || this.props.services[0], metricQueryPayload);
+
+    fetchAggregatedServiceMetrics(selectedService || this.props.services[0], metricQueryPayload);
+
+    this.setState({ serviceOpsMetrics: null });
+    this.setState({ searchOps: '' });
+  }
+
+  getSelectedService() {
+    const { selectedService, services } = this.props;
+    return selectedService || store.get('lastAtmSearchService') || services[0];
+  }
+
+  getLoadingState() {
+    const { metrics } = this.props;
+
+    return metrics.loading || !this.getSelectedService();
   }
 
   render() {
-    const { services, selectedService, metrics, selectedTimeFrame } = this.props;
+    const { services, metrics, selectedTimeFrame } = this.props;
+
+    const timeframeInHours = selectedTimeFrame / 3600000;
+    const timePeriod = timeframeInHours <= 1 ? '' : timeframeInHours.toFixed(0);
 
     return (
-      <div style={{ padding: '1rem 0.5rem' }}>
+      <div style={{ padding: '1rem 1.375rem' }}>
         <Row>
           <Col span={6}>
-            <h2>Choose service</h2>
+            <h2
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+              }}
+            >
+              Choose service
+            </h2>
             <Field
               name="service"
               component={AdaptedVirtualSelect}
               placeholder="Select A Service"
               props={{
-                value: selectedService || services[0],
+                style: { fontSize: 14, width: '100%' },
+                value: this.getSelectedService(),
                 disabled: false,
                 clearable: false,
                 options: services.map((s: string) => ({ label: s, value: s })),
@@ -120,81 +144,130 @@ export class MonitoringATMServicesViewImpl extends React.PureComponent<any, any>
           </Col>
         </Row>
         <Row>
-          <Col span={16} className="ub-p2">
-            <p style={{ marginTop: 'revert' }}>
-              Aggregation of all "{selectedService || services[0]}" metrics in selected timeframe.{' '}
+          <Col span={16}>
+            <p
+              style={{
+                marginTop: 17,
+                marginBottom: 14,
+                fontSize: 14,
+                fontWeight: 400,
+              }}
+            >
+              Aggregation of all &quot;{this.getSelectedService()}&quot; metrics in selected timeframe.{' '}
               <a href="#">View all traces</a>
             </p>
           </Col>
-          <Col span={8} className="ub-p2">
+          <Col span={8} style={{ display: 'inline-flex', justifyContent: 'flex-end' }}>
             <Field
               name="timeframe"
               component={AdaptedVirtualSelect}
               placeholder="Select A Timeframe"
               props={{
-                defaultValue: {label: 'Last Hour', value: 3600000},
-                value: selectedTimeFrame || {label: 'Last Hour', value: 3600000},
+                style: { fontSize: 14, width: 128 },
+                defaultValue: { label: 'Last Hour', value: 3600000 },
+                value: selectedTimeFrame,
                 disabled: false,
                 clearable: false,
-                options: [{label: 'Last Hour', value: 3600000}, {label: 'Last 2 hour', value: 2*3600000}, {label: 'Last 6 hour', value: 6*3600000}],
+                options: [
+                  { label: 'Last Hour', value: 3600000 },
+                  { label: 'Last 2 hour', value: 2 * 3600000 },
+                  { label: 'Last 6 hour', value: 6 * 3600000 },
+                ],
                 required: true,
               }}
             />
           </Col>
         </Row>
         <Row>
-          <Col span={8} className="ub-p2">
-            <div ref={this.myInput}></div>
+          <Col span={8}>
+            <div ref={this.myInput} />
             <ServiceGraph
+              loading={this.getLoadingState()}
+              name="Latency"
               width={this.state.graphWidth}
               metricsData={metrics.serviceMetrics.service_latencies}
+              showLegend
+              margin="0px 7px 0px 0px"
+              showHorizontalLines
             />
           </Col>
-          <Col span={8} className="ub-p2">
+          <Col span={8}>
             <ServiceGraph
+              loading={this.getLoadingState()}
+              name="Error rate %"
               width={this.state.graphWidth}
               metricsData={metrics.serviceMetrics.service_error_rate}
+              margin="0px 3px"
+              yDomain={[0, 100]}
             />
           </Col>
-          <Col span={8} className="ub-p2">
-          <ServiceGraph
+          <Col span={8}>
+            <ServiceGraph
+              loading={this.getLoadingState()}
+              name="Requests"
               width={this.state.graphWidth}
               metricsData={metrics.serviceMetrics.service_call_rate}
+              showHorizontalLines
+              margin="0px 0px 0px 7px"
             />
           </Col>
         </Row>
-        <Row>
+        <Row style={{ marginTop: 54 }}>
           <Row>
-            <Col span={16} className="ub-p2">
-              <p style={{ marginTop: 'revert' }}>
-                Operations under "{selectedService || services[0]}" <span>Over the last hour</span>
-              </p>
+            <Col span={16}>
+              <h2
+                style={{
+                  display: 'inline-block',
+                  marginBottom: 15,
+                  fontSize: 18,
+                  fontWeight: 700,
+                }}
+              >
+                Operations under {this.getSelectedService()}
+              </h2>{' '}
+              <span
+                style={{
+                  fontSize: 14,
+                  fontWeight: 400,
+                }}
+              >
+                Over the last {timePeriod} hour{timePeriod === '' ? '' : 's'}
+              </span>
             </Col>
-            <Col span={8} className="ub-p2">
-            <Search
-              placeholder="Enter Title"
-              onChange={(a) => {
-                if(Array.isArray(this.state.serviceOpsMetrics)) {
-                  const filteredData = (this.props.metrics.serviceOpsMetrics as any).filter(({ name }: {name: string}) => {
-                    console.log('777 name: ', name);
-                    return name.toLowerCase().includes(a.target.value.toLowerCase());
-                  });
+            <Col span={8} style={{ display: 'inline-flex', justifyContent: 'flex-end' }}>
+              <Search
+                placeholder="Search operation"
+                style={{ fontSize: 14, width: 218 }}
+                value={this.state.searchOps}
+                onChange={a => {
+                  // if (Array.isArray(this.state.serviceOpsMetrics)) {
+                  const filteredData = (this.props.metrics.serviceOpsMetrics as any).filter(
+                    ({ name }: { name: string }) => {
+                      return name.toLowerCase().includes(a.target.value.toLowerCase());
+                    }
+                  );
 
-                  console.log('777 filteredData:',  filteredData);
+                  this.setState({ searchOps: a.target.value });
 
                   this.setState({
-                    serviceOpsMetrics: filteredData
+                    serviceOpsMetrics: filteredData,
                   });
-                }
-
-              }}
-              style={{ width: 200 }}
-            />
+                  // }
+                }}
+              />
             </Col>
           </Row>
           <Row>
             <OperationTableDetails
-              data={this.state.serviceOpsMetrics}
+              loading={metrics.operationMetricsLoading}
+              data={
+                this.state.serviceOpsMetrics === null
+                  ? metrics.serviceOpsMetrics
+                  : this.state.serviceOpsMetrics
+              }
+              endTime={this.endTime}
+              lookback={selectedTimeFrame}
+              serviceName={this.getSelectedService()}
             />
           </Row>
         </Row>
@@ -204,25 +277,27 @@ export class MonitoringATMServicesViewImpl extends React.PureComponent<any, any>
 }
 
 export function mapStateToProps(state: any) {
-
   const { services, serviceMetrics, metrics } = state;
   return {
     services: services.services || [],
     serviceMetrics,
     metrics,
-    selectedService: serviceFormSelector(state, 'service'),
-    selectedTimeFrame: serviceFormSelector(state, 'timeframe'),
+    selectedService: serviceFormSelector(state, 'service') || store.get('lastAtmSearchService'),
+    selectedTimeFrame:
+      serviceFormSelector(state, 'timeframe') || store.get('lastAtmSearchTimeframe') || 3600000,
     searchOperations: serviceFormSelector(state, 'searchOperations'),
   };
 }
 
 export function mapDispatchToProps(dispatch: any) {
-
-  const { fetchServices, fetchAllServiceMetrics, fetchAggregatedServiceMetrics } = bindActionCreators(jaegerApiActions, dispatch);
+  const { fetchServices, fetchAllServiceMetrics, fetchAggregatedServiceMetrics } = bindActionCreators(
+    jaegerApiActions,
+    dispatch
+  );
   return {
     fetchServices,
     fetchAllServiceMetrics,
-    fetchAggregatedServiceMetrics
+    fetchAggregatedServiceMetrics,
   };
 }
 
